@@ -1,0 +1,51 @@
+# Maintainer: Dominikos Pritis <hey@myroomie.gr>
+#
+# A -git package because nothing is tagged yet.
+#
+# The package carries no driver source. It installs build.sh, the patches and
+# dkms.conf under /usr/src; the DKMS hook then builds the module for every
+# kernel with headers, and build.sh downloads that kernel's own driver source
+# at build time. So a kernel update needs network access, and a new kernel
+# series that the patches do not cover fails its DKMS build out loud instead of
+# shipping a driver from some other kernel.
+#
+# No initramfs step here: the limine/mkinitcpio hook already triggers on
+# usr/src/*/dkms.conf and runs after the DKMS hook.
+pkgname=logitech-bolt-hidpp-dkms-git
+_dkmsname=logitech-bolt-hidpp
+pkgver=r0.g0000000
+pkgrel=1
+pkgdesc="hid-logitech-hidpp with hi-res wheel diversion on Bolt receivers (MX Master 4 scroll fix), built by DKMS"
+arch=('any')
+url="https://github.com/Magnetar-OS/logitech-bolt-hidpp-dkms"
+license=('GPL-2.0-only')
+depends=('dkms' 'curl' 'patch')
+makedepends=('git')
+provides=('logitech-bolt-hidpp-dkms')
+conflicts=('logitech-bolt-hidpp-dkms')
+install="$pkgname.install"
+source=("$pkgname::git+https://github.com/Magnetar-OS/logitech-bolt-hidpp-dkms.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/$pkgname"
+  printf "r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+check() {
+  cd "$srcdir/$pkgname"
+  bash tests/test-build-plan.sh
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+
+  local dest="$pkgdir/usr/src/$_dkmsname-$pkgver"
+  install -Dm644 dkms.conf "$dest/dkms.conf"
+  sed -i "s/@PKGVER@/$pkgver/" "$dest/dkms.conf"
+  install -Dm755 build.sh "$dest/build.sh"
+  install -Dm644 -t "$dest/patches" patches/*.patch
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

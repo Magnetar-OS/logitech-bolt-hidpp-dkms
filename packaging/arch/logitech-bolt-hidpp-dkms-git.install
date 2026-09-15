@@ -1,0 +1,18 @@
+_message() {
+  cat <<'EOF'
+==> hid-logitech-hidpp is rebuilt for every kernel with headers, but the running
+    kernel keeps the module it loaded at boot. Reboot, or reload it:
+      sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp
+    then power-cycle the mouse once.
+==> The DKMS build downloads the driver source from git.kernel.org, so kernel
+    updates need network access.
+EOF
+}
+
+post_install() {
+  _message
+}
+
+post_upgrade() {
+  _message
+}
