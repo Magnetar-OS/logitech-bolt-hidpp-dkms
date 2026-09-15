@@ -8,8 +8,14 @@ Notable changes, in the format of [Keep a Changelog](https://keepachangelog.com/
 
 - **One wheel notch scrolls one step on an MX Master 4 behind a Bolt
   receiver, on every kernel.** DKMS builds the patched `hid-logitech-hidpp`
-  for each installed kernel from that kernel's own driver source, so a kernel
-  update no longer brings back fifteen lines per notch.
-- Patches for kernel series 7.2 and 7.3. The build picks the one for the
-  kernel it is building and fails loudly when none applies.
+  for each installed kernel, so a kernel update no longer brings back fifteen
+  lines per notch.
+- The build is offline, from vendored upstream source for kernel series 7.2
+  (v7.2.6) and 7.3 (v7.3-rc3), so it works inside pacman's network-less
+  hooks. A kernel from a series with no vendored source fails loudly and
+  keeps its stock driver.
+- `tools/update-source.sh <tag>` vendors a new series or a newer upstream
+  driver and checks the patch still applies.
+- The module installs to `updates/dkms` and leaves the kernel package's own
+  module file untouched.
 - Arch package `logitech-bolt-hidpp-dkms-git`.
