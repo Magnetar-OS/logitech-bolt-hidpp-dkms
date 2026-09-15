@@ -16,6 +16,6 @@ Notable changes, in the format of [Keep a Changelog](https://keepachangelog.com/
   keeps its stock driver.
 - `tools/update-source.sh <tag>` vendors a new series or a newer upstream
   driver and checks the patch still applies.
-- The module installs to `updates/dkms` and leaves the kernel package's own
-  module file untouched.
+- The module installs to `updates/dkms`. DKMS keeps the stock module file
+  aside while it is installed and restores it on removal.
 - Arch package `logitech-bolt-hidpp-dkms-git`.

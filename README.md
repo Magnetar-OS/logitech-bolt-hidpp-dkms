@@ -43,8 +43,10 @@ own point release's. A kernel from a series with no `vendor/` directory fails
 its DKMS build in the pacman output and keeps its stock driver, which means
 15-line scrolling until the series is added.
 
-The module installs to `updates/dkms`, which depmod prefers over the stock
-module; the kernel package's own file is left alone.
+The module installs to `updates/dkms`. While it is installed, DKMS keeps the
+stock `hid-logitech-hidpp.ko.zst` in
+`/var/lib/dkms/logitech-bolt-hidpp/original_module` and puts it back when the
+package is removed, so `pacman -Qkk` reports that file missing in the meantime.
 
 ## Install
 
@@ -57,9 +59,12 @@ makepkg -si
 ```
 
 The DKMS hook builds the module for every kernel with headers, and the
-initramfs hook regenerates the images; the `keyboard` hook puts this driver in
-the initramfs. The running kernel keeps the module it loaded at boot, so either
-reboot or reload it and power-cycle the mouse once:
+initramfs hook regenerates the images. Those images no longer carry
+`hid-logitech-hidpp`: the `keyboard` hook only finds it at the stock path,
+which DKMS has moved aside. Early boot uses the generic HID driver, and the
+patched module takes the receiver's devices over once the root filesystem is
+up. The running kernel keeps the module it loaded at boot, so either reboot or
+reload it and power-cycle the mouse once:
 
 ```sh
 sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp
