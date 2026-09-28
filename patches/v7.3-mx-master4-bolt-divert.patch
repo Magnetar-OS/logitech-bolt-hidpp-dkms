@@ -43,7 +43,7 @@ load), signs correct in both directions, thumbwheel unaffected.  The restore
 on remove is build-tested only.
 
 diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
-index 493763a..f58a889 100644
+index 493763a..0c22405 100644
 --- a/drivers/hid/hid-logitech-hidpp.c
 +++ b/drivers/hid/hid-logitech-hidpp.c
 @@ -212,6 +212,8 @@ struct hidpp_device {
@@ -241,22 +241,7 @@ index 493763a..f58a889 100644
  	if ((data[3] & 0xf0) == CMD_HIRES_WHEEL_SET_WHEEL_MODE) {
  		u8 mode = data[4];
  		bool hires = (mode & 0x02) != 0;
-@@ -4082,6 +4221,14 @@ static void hidpp_populate_input(struct hidpp_device *hidpp,
- 
- 	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_REPROG_CONTROLS_BTNS)
- 		hidpp20_reprog_controls_populate_input(hidpp, input);
-+
-+	if (hidpp->hires_wheel_diverted) {
-+		/* diverted wheel events are emitted on this input device */
-+		__set_bit(EV_REL, input->evbit);
-+		__set_bit(REL_WHEEL, input->relbit);
-+		__set_bit(REL_WHEEL_HI_RES, input->relbit);
-+	}
-+
- }
- 
- static int hidpp_input_configured(struct hid_device *hdev, struct hid_input *hidinput)
-@@ -4605,6 +4752,13 @@ static void hidpp_connect_event(struct work_struct *work)
+@@ -4605,6 +4744,13 @@ static void hidpp_connect_event(struct work_struct *work)
  	if (hidpp->capabilities & HIDPP_CAPABILITY_HI_RES_SCROLL)
  		hi_res_scroll_enable(hidpp);
  
@@ -270,7 +255,7 @@ index 493763a..f58a889 100644
  	if (!(hidpp->quirks & HIDPP_QUIRK_DELAYED_INIT) || hidpp->delayed_input)
  		/* if the input nodes are already created, we can stop now */
  		return;
-@@ -4847,6 +5001,11 @@ static void hidpp_remove(struct hid_device *hdev)
+@@ -4847,6 +4993,11 @@ static void hidpp_remove(struct hid_device *hdev)
  
  	sysfs_remove_group(&hdev->dev.kobj, &ps_attribute_group);
  
