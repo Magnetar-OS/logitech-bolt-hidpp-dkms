@@ -1,14 +1,22 @@
 # logitech-bolt-hidpp-dkms
 
 `hid-logitech-hidpp` with high-resolution wheel events diverted to HID++ on
-Logitech Bolt receivers, built by DKMS for every installed kernel.
+Logitech Bolt receivers, built by DKMS for every installed 7.3 or later kernel.
 
 ## What it fixes
 
-On a Bolt receiver (`046d:c548`) the stock driver switches an MX Master 4's
-wheel into high-resolution mode, 15 steps per notch, and expects to scale those
-steps back down. On the Bolt topology `hid-logitech-dj` never hands them to it,
-so they reach userspace unscaled: one notch scrolls fifteen lines.
+Kernel 7.3 added Bolt receiver support to `hid-logitech-dj`, so from 7.3-rc1
+`hid-logitech-hidpp` drives devices paired to a Bolt receiver (`046d:c548`).
+The stock driver then switches an MX Master 4's wheel into high-resolution
+mode, 15 steps per notch, and expects to scale those steps back down. On the
+Bolt topology `hid-logitech-dj` never hands them to it, so they reach userspace
+unscaled: one notch scrolls fifteen lines.
+
+Kernels before 7.3 do not have the bug: `hid-logitech-dj` does not bind the
+Bolt receiver there, the mouse is driven by the generic HID driver, and the
+kernel never switches the wheel into high-resolution mode. DKMS skips them
+(`BUILD_EXCLUSIVE_KERNEL_MIN="7.3"` in `dkms.conf`; `dkms install` prints a
+BUILD_EXCLUSIVE notice) and they keep their stock module.
 
 The patch detects the Bolt topology and diverts wheel events to HID++
 notifications, which do reach the driver. One notch is one notch again, and
@@ -27,21 +35,18 @@ the source:
 - `vendor/vX.Y/` is the unmodified upstream driver, `hid-logitech-hidpp.c` and
   the two headers it includes, for kernel series X.Y, at the tag named in
   `vendor/vX.Y/TAG`.
-- `patches/vX.Y-*.patch` is the patch for that series. 7.2 has its own copy
-  because one hunk anchors on reprogrammable-controls code that only exists
-  from 7.3.
+- `patches/vX.Y-*.patch` is the patch for that series.
 - `build.sh` copies the series matching the kernel DKMS is building, applies
   its patch and builds the module against the installed headers, offline.
 
-| Series | Vendored tag | Patch                              |
-|--------|--------------|------------------------------------|
-| v7.2   | `v7.2.6`     | `v7.2-mx-master4-bolt-divert.patch` |
+| Series | Vendored tag | Patch                               |
+|--------|--------------|-------------------------------------|
 | v7.3   | `v7.3-rc3`   | `v7.3-mx-master4-bolt-divert.patch` |
 
 Every kernel in a series runs the vendored driver version, not necessarily its
-own point release's. A kernel from a series with no `vendor/` directory fails
-its DKMS build in the pacman output and keeps its stock driver, which means
-15-line scrolling until the series is added.
+own point release's. A 7.3 or later kernel from a series with no `vendor/`
+directory fails its DKMS build in the pacman output and keeps its stock
+driver, which means 15-line scrolling until the series is added.
 
 The module installs to `updates/dkms`. While it is installed, DKMS keeps the
 stock `hid-logitech-hidpp.ko.zst` in
@@ -58,8 +63,8 @@ cd logitech-bolt-hidpp-dkms/packaging/arch
 makepkg -si
 ```
 
-The DKMS hook builds the module for every kernel with headers, and the
-initramfs hook regenerates the images. Those images no longer carry
+The DKMS hook builds the module for every 7.3 or later kernel with headers,
+and the initramfs hook regenerates the images. Those images no longer carry
 `hid-logitech-hidpp`: the `keyboard` hook only finds it at the stock path,
 which DKMS has moved aside. Early boot uses the generic HID driver, and the
 patched module takes the receiver's devices over once the root filesystem is

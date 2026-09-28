@@ -36,9 +36,21 @@ expect v7.2  tag_series v7.2.5
 expect "<error>" tag_series 7.2.5
 expect "<error>" tag_series v7.3-rc3-dirty
 
-expect "$root/patches/v7.2-mx-master4-bolt-divert.patch" series_patch "$root" v7.2
 expect "$root/patches/v7.3-mx-master4-bolt-divert.patch" series_patch "$root" v7.3
+expect "<error>" series_patch "$root" v7.2
 expect "<error>" series_patch "$root" v7.1
+
+# Kernels before 7.3 have no Bolt support in hid-logitech-dj, so hidpp never
+# drives a Bolt device there and there is nothing to fix. DKMS skips them via
+# BUILD_EXCLUSIVE_KERNEL_MIN, which must name the oldest vendored series.
+min=$(sed -n 's/^BUILD_EXCLUSIVE_KERNEL_MIN="\(.*\)"$/\1/p' "$root/dkms.conf")
+oldest=$(for dir in "$root"/vendor/v*/; do basename "$dir"; done | sort -V | head -n 1)
+if [[ -n $min && v$min == "$oldest" ]]; then
+  echo "ok    BUILD_EXCLUSIVE_KERNEL_MIN $min is the oldest vendored series"
+else
+  echo "FAIL  BUILD_EXCLUSIVE_KERNEL_MIN '$min' is not the oldest vendored series $oldest"
+  failed=1
+fi
 
 for dir in "$root"/vendor/v*/; do
   series=$(basename "$dir")

@@ -1,7 +1,8 @@
 _message() {
   cat <<'EOF'
-==> hid-logitech-hidpp is rebuilt for every kernel with headers, but the running
-    kernel keeps the module it loaded at boot. Reboot, or reload it:
+==> hid-logitech-hidpp is rebuilt for every 7.3 or later kernel with headers,
+    but the running kernel keeps the module it loaded at boot. Reboot, or
+    reload it:
       sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp
     then power-cycle the mouse once.
 EOF
