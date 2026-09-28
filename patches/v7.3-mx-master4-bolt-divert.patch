@@ -43,7 +43,7 @@ load), signs correct in both directions, thumbwheel unaffected.  The restore
 on remove is build-tested only.
 
 diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
-index 493763a..39872fe 100644
+index 493763a..f58a889 100644
 --- a/drivers/hid/hid-logitech-hidpp.c
 +++ b/drivers/hid/hid-logitech-hidpp.c
 @@ -212,6 +212,8 @@ struct hidpp_device {
@@ -109,7 +109,7 @@ index 493763a..39872fe 100644
  /* -------------------------------------------------------------------------- */
  /* 0x4301: Solar Keyboard                                                     */
  /* -------------------------------------------------------------------------- */
-@@ -3904,18 +3946,56 @@ static int hidpp10_consumer_keys_raw_event(struct hidpp_device *hidpp,
+@@ -3904,18 +3946,57 @@ static int hidpp10_consumer_keys_raw_event(struct hidpp_device *hidpp,
  /* High-resolution scroll wheels                                              */
  /* -------------------------------------------------------------------------- */
  
@@ -120,8 +120,9 @@ index 493763a..39872fe 100644
 + * (see logi_dj_probe()).  Wheel events therefore never reach this driver,
 + * so the multiplied hi-res deltas would be emitted to userspace unscaled
 + * (e.g. 15 REL_WHEEL clicks per physical notch on an MX Master 4).
-+ * Detect that topology so hi-res mode is never enabled behind a Bolt
-+ * receiver.
++ * Detect that topology so hi-res wheel events are diverted to HID++
++ * notifications behind a Bolt receiver, and hi-res scrolling without a
++ * HID++ route (0x2120) stays off.
 + */
 +static bool hidpp_is_bolt_receiver_child(struct hidpp_device *hidpp)
 +{
@@ -168,7 +169,7 @@ index 493763a..39872fe 100644
  	} else /* if (hidpp->capabilities & HIDPP_CAPABILITY_HIDPP10_FAST_SCROLL) */ {
  		ret = hidpp10_enable_scrolling_acceleration(hidpp);
  		multiplier = 8;
-@@ -3938,6 +4018,33 @@ static int hi_res_scroll_enable(struct hidpp_device *hidpp)
+@@ -3938,6 +4019,33 @@ static int hi_res_scroll_enable(struct hidpp_device *hidpp)
  	return 0;
  }
  
@@ -202,7 +203,7 @@ index 493763a..39872fe 100644
  static int hidpp_initialize_hires_scroll(struct hidpp_device *hidpp)
  {
  	int ret;
-@@ -3989,6 +4096,37 @@ static int hidpp20_hires_wheel_raw_event(struct hidpp_device *hidpp,
+@@ -3989,6 +4097,37 @@ static int hidpp20_hires_wheel_raw_event(struct hidpp_device *hidpp,
  	    data[2] != hidpp->hires_wheel_feature_index)
  		return 0;
  
@@ -240,7 +241,7 @@ index 493763a..39872fe 100644
  	if ((data[3] & 0xf0) == CMD_HIRES_WHEEL_SET_WHEEL_MODE) {
  		u8 mode = data[4];
  		bool hires = (mode & 0x02) != 0;
-@@ -4082,6 +4220,14 @@ static void hidpp_populate_input(struct hidpp_device *hidpp,
+@@ -4082,6 +4221,14 @@ static void hidpp_populate_input(struct hidpp_device *hidpp,
  
  	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_REPROG_CONTROLS_BTNS)
  		hidpp20_reprog_controls_populate_input(hidpp, input);
@@ -255,7 +256,7 @@ index 493763a..39872fe 100644
  }
  
  static int hidpp_input_configured(struct hid_device *hdev, struct hid_input *hidinput)
-@@ -4605,6 +4751,13 @@ static void hidpp_connect_event(struct work_struct *work)
+@@ -4605,6 +4752,13 @@ static void hidpp_connect_event(struct work_struct *work)
  	if (hidpp->capabilities & HIDPP_CAPABILITY_HI_RES_SCROLL)
  		hi_res_scroll_enable(hidpp);
  
@@ -269,7 +270,7 @@ index 493763a..39872fe 100644
  	if (!(hidpp->quirks & HIDPP_QUIRK_DELAYED_INIT) || hidpp->delayed_input)
  		/* if the input nodes are already created, we can stop now */
  		return;
-@@ -4847,6 +5000,11 @@ static void hidpp_remove(struct hid_device *hdev)
+@@ -4847,6 +5001,11 @@ static void hidpp_remove(struct hid_device *hdev)
  
  	sysfs_remove_group(&hdev->dev.kobj, &ps_attribute_group);
  
