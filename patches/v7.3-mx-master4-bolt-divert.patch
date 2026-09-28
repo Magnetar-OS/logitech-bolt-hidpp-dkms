@@ -20,7 +20,14 @@ the x2121 wheelMovement event (0x00) by feeding the signed 16-bit
 delta through hidpp_scroll_counter_handle_scroll(), preserving both
 high-resolution REL_WHEEL_HI_RES output and the low-resolution
 REL_WHEEL emulation. The wheel mode is re-applied on every connect
-event, so the device heals itself after each wake or power cycle.
+event, so a wake or power cycle cannot leave the wheel in another mode.
+
+The wheel mode is state in the device, and nothing that binds after this
+driver consumes the diverted notifications: hid-generic on a kernel whose
+hid-logitech-dj does not bind Bolt receivers, or this driver without the
+Bolt handling.  So on remove (module unload or unbind) the wheel is put
+back on native, low-resolution reporting, the device default, while the
+device is still reachable.
 
 The thumbwheel (feature 0x2150) is explicitly kept on native HID
 reporting on every connect: diverting it on the MX Master 4 silences
@@ -32,12 +39,14 @@ userspace tools.
 Verified on an MX Master 4 "for Mac" via Bolt receiver 046d:c548:
 ratchet notches produce exactly one click (delta 15 -> v120 120), slow
 and free-spin rotation produces sub-notch deltas (1..7, batched under
-load), signs correct in both directions, thumbwheel unaffected.
+load), signs correct in both directions, thumbwheel unaffected.  The restore
+on remove is build-tested only.
 
 diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
+index 493763a..39872fe 100644
 --- a/drivers/hid/hid-logitech-hidpp.c
 +++ b/drivers/hid/hid-logitech-hidpp.c
-@@ -212,6 +212,8 @@
+@@ -212,6 +212,8 @@ struct hidpp_device {
  	const struct hidpp_reprog_control_mapping *reprog_controls;
  
  	int hires_wheel_multiplier;
@@ -46,7 +55,7 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
  	u8 hires_wheel_feature_index;
  
  	bool connected_once;
-@@ -2045,6 +2047,7 @@
+@@ -2045,6 +2047,7 @@ static int hidpp_hrs_set_highres_scrolling_mode(struct hidpp_device *hidpp,
  
  #define CMD_HIRES_WHEEL_GET_WHEEL_CAPABILITY	0x00
  #define CMD_HIRES_WHEEL_SET_WHEEL_MODE		0x20
@@ -54,10 +63,11 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
  
  static int hidpp_hrw_get_wheel_capability(struct hidpp_device *hidpp,
  	u8 *multiplier)
-@@ -2095,6 +2098,45 @@
+@@ -2094,6 +2097,45 @@ static int hidpp_hrw_set_wheel_mode(struct hidpp_device *hidpp, bool invert,
+ 					   params, sizeof(params), &response);
  }
  
- /* -------------------------------------------------------------------------- */
++/* -------------------------------------------------------------------------- */
 +/* 0x2150: Thumbwheel                                                         */
 +/* -------------------------------------------------------------------------- */
 +
@@ -96,11 +106,10 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
 +					   params, sizeof(params), &response);
 +}
 +
-+/* -------------------------------------------------------------------------- */
+ /* -------------------------------------------------------------------------- */
  /* 0x4301: Solar Keyboard                                                     */
  /* -------------------------------------------------------------------------- */
- 
-@@ -3904,18 +3946,56 @@
+@@ -3904,18 +3946,56 @@ static int hidpp10_consumer_keys_raw_event(struct hidpp_device *hidpp,
  /* High-resolution scroll wheels                                              */
  /* -------------------------------------------------------------------------- */
  
@@ -159,7 +168,41 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
  	} else /* if (hidpp->capabilities & HIDPP_CAPABILITY_HIDPP10_FAST_SCROLL) */ {
  		ret = hidpp10_enable_scrolling_acceleration(hidpp);
  		multiplier = 8;
-@@ -3989,6 +4069,37 @@
+@@ -3938,6 +4018,33 @@ static int hi_res_scroll_enable(struct hidpp_device *hidpp)
+ 	return 0;
+ }
+ 
++/*
++ * Put a diverted wheel back on native HID reporting when the driver lets go
++ * of the device (module unload or unbind).  The wheel mode is state in the
++ * device, and whatever binds next - this driver without the Bolt topology
++ * handling, or hid-generic on a kernel whose hid-logitech-dj does not bind
++ * Bolt receivers - ignores HID++ wheel notifications, so a wheel left
++ * diverted would stop scrolling.  Low resolution is the device default and
++ * what hid-generic expects.  A device that is asleep answers with an error
++ * and keeps its mode.
++ */
++static void hi_res_scroll_restore_native(struct hidpp_device *hidpp)
++{
++	int ret;
++
++	if (!hidpp->hires_wheel_diverted)
++		return;
++
++	hidpp->hires_wheel_diverted = false;
++	/* hid_device_remove() stopped input; the answer needs it */
++	hid_device_io_start(hidpp->hid_dev);
++	ret = hidpp_hrw_set_wheel_mode(hidpp, false, false, false);
++	if (ret)
++		hid_dbg(hidpp->hid_dev,
++			"Bolt receiver: could not restore native wheel reporting: %d\n",
++			ret);
++}
++
+ static int hidpp_initialize_hires_scroll(struct hidpp_device *hidpp)
+ {
+ 	int ret;
+@@ -3989,6 +4096,37 @@ static int hidpp20_hires_wheel_raw_event(struct hidpp_device *hidpp,
  	    data[2] != hidpp->hires_wheel_feature_index)
  		return 0;
  
@@ -197,7 +240,7 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
  	if ((data[3] & 0xf0) == CMD_HIRES_WHEEL_SET_WHEEL_MODE) {
  		u8 mode = data[4];
  		bool hires = (mode & 0x02) != 0;
-@@ -4082,6 +4193,14 @@
+@@ -4082,6 +4220,14 @@ static void hidpp_populate_input(struct hidpp_device *hidpp,
  
  	if (hidpp->quirks & HIDPP_QUIRK_HIDPP_REPROG_CONTROLS_BTNS)
  		hidpp20_reprog_controls_populate_input(hidpp, input);
@@ -212,7 +255,7 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
  }
  
  static int hidpp_input_configured(struct hid_device *hdev, struct hid_input *hidinput)
-@@ -4605,6 +4724,13 @@
+@@ -4605,6 +4751,13 @@ static void hidpp_connect_event(struct work_struct *work)
  	if (hidpp->capabilities & HIDPP_CAPABILITY_HI_RES_SCROLL)
  		hi_res_scroll_enable(hidpp);
  
@@ -226,3 +269,15 @@ diff --git a/drivers/hid/hid-logitech-hidpp.c b/drivers/hid/hid-logitech-hidpp.c
  	if (!(hidpp->quirks & HIDPP_QUIRK_DELAYED_INIT) || hidpp->delayed_input)
  		/* if the input nodes are already created, we can stop now */
  		return;
+@@ -4847,6 +5000,11 @@ static void hidpp_remove(struct hid_device *hdev)
+ 
+ 	sysfs_remove_group(&hdev->dev.kobj, &ps_attribute_group);
+ 
++	/* no connect or reset work may divert the wheel again after this */
++	cancel_work_sync(&hidpp->work);
++	cancel_work_sync(&hidpp->reset_hi_res_work);
++	hi_res_scroll_restore_native(hidpp);
++
+ 	hid_hw_stop(hdev);
+ 	cancel_work_sync(&hidpp->work);
+ 	cancel_work_sync(&hidpp->reset_hi_res_work);

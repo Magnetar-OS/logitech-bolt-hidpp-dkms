@@ -4,6 +4,17 @@ Notable changes, in the format of [Keep a Changelog](https://keepachangelog.com/
 
 ## [Unreleased]
 
+### Fixed
+
+- **Unloading the module no longer leaves the MX Master 4's wheel dead.**
+  The wheel mode is state in the mouse, and the stock driver ignores the
+  diverted HID++ wheel events. The module now puts the wheel back on native,
+  low-resolution reporting when it is unloaded or unbound while the mouse is
+  awake. README and the package's removal message give the Solaar settings
+  to turn off before removing the package or booting a kernel without it,
+  since a reboot does not unload the module and Solaar reapplies its saved
+  settings.
+
 ### Added
 
 - **One wheel notch scrolls one step on an MX Master 4 behind a Bolt

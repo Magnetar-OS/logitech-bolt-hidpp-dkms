@@ -101,14 +101,36 @@ and one notch reports a v120 of 120.
 
 ## Solaar
 
-Keep `hires-scroll-mode` true and `thumb-scroll-mode` false. Turning wheel
-diversion off while leaving resolution on brings the 15× scroll back.
+Keep `hires-scroll-mode` ("Scroll Wheel Diversion") true and
+`thumb-scroll-mode` ("Thumb Wheel Diversion") false. Turning wheel diversion
+off while leaving resolution on brings the 15× scroll back.
 
-## Remove
+## Remove, or boot a kernel without this module
+
+The wheel mode is state in the mouse, not in the driver. With this module
+the wheel is diverted to HID++ notifications, which only this module turns
+into scrolling. A kernel without it (7.2, a 7.3 with the upstream revert, or
+any kernel after `pacman -R`) drives the mouse through the generic HID
+driver, which ignores those notifications: the wheel stops scrolling, or
+scrolls fifteen lines per notch if only the resolution stays high.
+
+The module puts the wheel back on native, low-resolution reporting when it is
+unloaded while the mouse is awake. Rebooting does not unload it, and
+Solaar reapplies its saved settings on every connect, so before removing the
+package or booting such a kernel:
 
 ```sh
+solaar config "MX Master 4" hires-scroll-mode false        # Scroll Wheel Diversion off
+solaar config "MX Master 4" hires-smooth-resolution false  # Scroll Wheel Resolution off
 sudo pacman -R logitech-bolt-hidpp-dkms-git
+sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp  # mouse awake
 ```
+
+Without Solaar, the reload alone resets the wheel. If the wheel is already
+dead under another kernel, the two `solaar config` lines fix it there.
+Whether the mouse keeps the diverted mode across its own power cycle is
+unverified: an upstream report says it does, while this patch was written
+assuming a power cycle resets it.
 
 ## Development
 

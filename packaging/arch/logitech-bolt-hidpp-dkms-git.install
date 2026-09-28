@@ -15,3 +15,15 @@ post_install() {
 post_upgrade() {
   _message
 }
+
+post_remove() {
+  cat <<'EOF'
+==> The MX Master 4's wheel stays diverted to HID++ until something resets
+    it, and the stock driver does not scroll from diverted events. Unless
+    Solaar already has them off, turn off Scroll Wheel Diversion and Scroll
+    Wheel Resolution, then reload the module while the mouse is awake:
+      solaar config "MX Master 4" hires-scroll-mode false
+      solaar config "MX Master 4" hires-smooth-resolution false
+      sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp
+EOF
+}
