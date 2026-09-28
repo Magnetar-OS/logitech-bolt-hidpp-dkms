@@ -41,7 +41,7 @@ the source:
 
 | Series | Vendored tag | Patch                               |
 |--------|--------------|-------------------------------------|
-| v7.3   | `v7.3-rc3`   | `v7.3-mx-master4-bolt-divert.patch` |
+| v7.3   | `v7.3-rc5`   | `v7.3-mx-master4-bolt-divert.patch` |
 
 Every kernel in a series runs the vendored driver version, not necessarily its
 own point release's. A 7.3 or later kernel from a series with no `vendor/`
