@@ -141,9 +141,31 @@ bash tests/test-build-plan.sh                                  # offline, includ
 
 ## Upstream
 
-Not submitted yet. Each patch carries its commit message for
-`linux-input@vger.kernel.org`. It explains Solaar issue #2764, "MX Master 3S
-Scroll Wheel Resolution inconsistent between Bluetooth and Bolt Dongle".
+Checked 2026-09-29 against hid.git, Linus's tree and the linux-input
+patchwork.
+
+- **The cause is being reverted.** The 15× scroll comes from 7.3's "HID:
+  logitech: add Bolt receiver support for Logitech HID++ devices"
+  (022eb347ff3a, in 7.3-rc1). Benjamin Tissoires reverted it on 2026-09-23
+  as 3fabd8ec206b in hid.git `for-7.3/upstream-fixes`, also in `for-next`,
+  because Bolt does not say which device sent an event and userspace changes
+  the wheel settings under the driver. The revert is not in Linus's tree yet:
+  v7.3-rc5 still has Bolt support.
+- **When it lands**, a 7.3 kernel no longer binds the Bolt receiver in
+  `hid-logitech-dj` and has no bug, and this package has nothing left to
+  fix. On such a kernel `modinfo -F alias hid-logitech-dj | grep -i c548`
+  prints nothing. Reset the wheel as in [Remove](#remove-or-boot-a-kernel-without-this-module),
+  then remove the package.
+- **Competing fixes** on linux-input, none merged: Grégoire Stein's "HID:
+  logitech-dj: forward Bolt receiver input to the dj child device"
+  (2026-09-01), Rafael Passos's "HID: logitech-hidpp: fix hi-res scroll for
+  Bolt-connected MX Master" (2026-09-04), and Erik Håkansson's "[PATCH 0/2]
+  HID: logitech-hidpp: fix Bolt hi-res wheel handling" (2026-09-22), whose
+  cover letter cites this repository's `patches/` as reference. After the
+  revert Erik is working on a different approach for a later kernel.
+- This repository's patch has not been submitted. Its commit message
+  explains the mechanism behind Solaar issue #2764, "MX Master 3S Scroll
+  Wheel Resolution inconsistent between Bluetooth and Bolt Dongle" (closed).
 
 ## License
 
