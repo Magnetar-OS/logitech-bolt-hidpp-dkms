@@ -7,8 +7,7 @@ set -euo pipefail
 # shellcheck source-path=SCRIPTDIR/..
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=build.sh
-source "$root/build.sh"
+# update-source.sh sources build.sh as well.
 # shellcheck source=tools/update-source.sh
 source "$root/tools/update-source.sh"
 
@@ -49,6 +48,27 @@ if [[ -n $min && v$min == "$oldest" ]]; then
   echo "ok    BUILD_EXCLUSIVE_KERNEL_MIN $min is the oldest vendored series"
 else
   echo "FAIL  BUILD_EXCLUSIVE_KERNEL_MIN '$min' is not the oldest vendored series $oldest"
+  failed=1
+fi
+
+# update-source.sh checks a refreshed series with the same one-patch rule as
+# build.sh: two patches for a series fail the check.
+fixture=$(mktemp -d)
+trap 'rm -rf -- "$fixture"' EXIT
+mkdir -p "$fixture/vendor/v7.3" "$fixture/patches"
+cp -r "$root/vendor/v7.3/." "$fixture/vendor/v7.3/"
+cp "$root/patches/v7.3-"*.patch "$fixture/patches/v7.3-a.patch"
+cp "$root/patches/v7.3-"*.patch "$fixture/patches/v7.3-b.patch"
+if check_patch "$fixture" v7.3 > /dev/null 2>&1; then
+  echo "FAIL  check_patch accepts two patches for one series"
+  failed=1
+else
+  echo "ok    check_patch rejects two patches for one series"
+fi
+if check_patch "$root" v7.3 > /dev/null 2>&1; then
+  echo "ok    check_patch $root v7.3"
+else
+  echo "FAIL  check_patch $root v7.3"
   failed=1
 fi
 
