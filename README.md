@@ -1,22 +1,35 @@
 # logitech-bolt-hidpp-dkms
 
 `hid-logitech-hidpp` with high-resolution wheel events diverted to HID++ on
-Logitech Bolt receivers, built by DKMS for every installed 7.3 or later kernel.
+Logitech Bolt receivers, built by DKMS for the kernels that have the bug:
+7.3-rc1 to 7.3-rc5.
+
+**Not needed from 7.3-rc6.** Upstream reverted the change that caused the bug
+(3fabd8ec206b, first in the `v7.3-rc6` tag of 2026-10-04), so 7.3-rc6, the
+7.3 release and everything after it scroll correctly with the stock driver.
+DKMS does not build this module for them. Once no installed kernel is a
+7.3-rc1 to 7.3-rc5, [reset the wheel and remove the package](#remove-or-boot-a-kernel-without-this-module).
 
 ## What it fixes
 
-Kernel 7.3 added Bolt receiver support to `hid-logitech-dj`, so from 7.3-rc1
-`hid-logitech-hidpp` drives devices paired to a Bolt receiver (`046d:c548`).
-The stock driver then switches an MX Master 4's wheel into high-resolution
-mode, 15 steps per notch, and expects to scale those steps back down. On the
-Bolt topology `hid-logitech-dj` never hands them to it, so they reach userspace
-unscaled: one notch scrolls fifteen lines.
+Kernel 7.3-rc1 added Bolt receiver support to `hid-logitech-dj`, so from
+7.3-rc1 to 7.3-rc5 `hid-logitech-hidpp` drives devices paired to a Bolt
+receiver (`046d:c548`). The stock driver then switches an MX Master 4's wheel
+into high-resolution mode, 15 steps per notch, and expects to scale those
+steps back down. On the Bolt topology `hid-logitech-dj` never hands them to
+it, so they reach userspace unscaled: one notch scrolls fifteen lines.
 
-Kernels before 7.3 do not have the bug: `hid-logitech-dj` does not bind the
-Bolt receiver there, the mouse is driven by the generic HID driver, and the
-kernel never switches the wheel into high-resolution mode. DKMS skips them
-(`BUILD_EXCLUSIVE_KERNEL_MIN="7.3"` in `dkms.conf`; `dkms install` prints a
-BUILD_EXCLUSIVE notice) and they keep their stock module.
+No other kernel has the bug. Before 7.3, and again from 7.3-rc6,
+`hid-logitech-dj` does not bind the Bolt receiver, the mouse is driven by the
+generic HID driver, and the kernel never switches the wheel into
+high-resolution mode. DKMS skips those kernels (`BUILD_EXCLUSIVE_KERNEL` in
+`dkms.conf` matches only `7.3.0-rc1` to `7.3.0-rc5` releases; `dkms install`
+prints a BUILD_EXCLUSIVE notice) and they keep their stock module. `build.sh`
+run by hand refuses them with the same explanation.
+
+To check a kernel directly: `modinfo -k <release> -F alias hid-logitech-dj |
+grep -i c548` prints a line on a kernel with the bug and nothing on one
+without.
 
 The patch detects the Bolt topology and diverts wheel events to HID++
 notifications, which do reach the driver. One notch is one notch again, and
@@ -43,10 +56,9 @@ the source:
 |--------|--------------|-------------------------------------|
 | v7.3   | `v7.3-rc5`   | `v7.3-mx-master4-bolt-divert.patch` |
 
-Every kernel in a series runs the vendored driver version, not necessarily its
-own point release's. A 7.3 or later kernel from a series with no `vendor/`
-directory fails its DKMS build in the pacman output and keeps its stock
-driver, which means 15-line scrolling until the series is added.
+Every kernel built for runs the vendored driver version, not necessarily its
+own release candidate's. `v7.3-rc5` is the last tag with the bug, so it is
+also the last source this repository will vendor.
 
 The module installs to `updates/dkms`. While it is installed, DKMS keeps the
 stock `hid-logitech-hidpp.ko.zst` in
@@ -63,8 +75,8 @@ cd logitech-bolt-hidpp-dkms/packaging/arch
 makepkg -si
 ```
 
-The DKMS hook builds the module for every 7.3 or later kernel with headers,
-and the initramfs hook regenerates the images. Those images no longer carry
+The DKMS hook builds the module for every 7.3-rc1 to 7.3-rc5 kernel with
+headers, and the initramfs hook regenerates the images. Those images no longer carry
 `hid-logitech-hidpp`: the `keyboard` hook only finds it at the stock path,
 which DKMS has moved aside. Early boot uses the generic HID driver, and the
 patched module takes the receiver's devices over once the root filesystem is
@@ -77,17 +89,16 @@ sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp
 
 ## Update
 
-Kernel updates within a vendored series rebuild the module automatically.
+Kernel updates from one affected release candidate to another rebuild the
+module automatically. An update to 7.3-rc6 or later builds nothing: that
+kernel runs its stock driver, and [the wheel has to be reset](#remove-or-boot-a-kernel-without-this-module)
+before it is booted.
 
-For a new kernel series, or an upstream change to the driver:
-
-```sh
-tools/update-source.sh v7.4-rc1   # fetches vendor/v7.4, dry-runs patches/v7.4-*.patch
-# no patches/v7.4-*.patch yet? copy the newest one and fix it against vendor/v7.4
-bash tests/test-build-plan.sh
-git add vendor patches && git commit && git push
-cd packaging/arch && makepkg -si
-```
+There is nothing newer to vendor. `tools/update-source.sh <tag>` remains for
+refreshing `vendor/` within the affected range, and for the case that Bolt
+support returns upstream with the same defect — the range in `dkms.conf` and
+`build.sh` would then have to be widened with it, and
+`bash tests/test-build-plan.sh` fails until the three agree.
 
 ## Verify
 
@@ -109,10 +120,10 @@ off while leaving resolution on brings the 15× scroll back.
 
 The wheel mode is state in the mouse, not in the driver. With this module
 the wheel is diverted to HID++ notifications, which only this module turns
-into scrolling. A kernel without it (7.2, a 7.3 with the upstream revert, or
-any kernel after `pacman -R`) drives the mouse through the generic HID
-driver, which ignores those notifications: the wheel stops scrolling, or
-scrolls fifteen lines per notch if only the resolution stays high.
+into scrolling. A kernel without it (7.2, 7.3-rc6 or later, or any kernel
+after `pacman -R`) drives the mouse through the generic HID driver, which
+ignores those notifications: the wheel stops scrolling, or scrolls fifteen
+lines per notch if only the resolution stays high.
 
 The module puts the wheel back on native, low-resolution reporting when it is
 unloaded while the mouse is awake. Rebooting does not unload it, and
@@ -128,6 +139,11 @@ sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp  # mouse
 
 Without Solaar, the reload alone resets the wheel. If the wheel is already
 dead under another kernel, the two `solaar config` lines fix it there.
+
+Moving to 7.3-rc6 or later is this case: run the two `solaar config` lines
+under the old kernel, boot the new one, and remove the package once no
+7.3-rc1 to 7.3-rc5 kernel is left installed. `dkms status
+logitech-bolt-hidpp` lists the kernels the module is still built for.
 Whether the mouse keeps the diverted mode across its own power cycle is
 unverified: an upstream report says it does, while this patch was written
 assuming a power cycle resets it.
@@ -141,28 +157,34 @@ bash tests/test-build-plan.sh                                  # offline, includ
 
 ## Upstream
 
-Checked 2026-09-29 against hid.git, Linus's tree and the linux-input
-patchwork.
+Checked 2026-10-06 against Linus's tree, hid.git and kernel.org.
 
-- **The cause is being reverted.** The 15× scroll comes from 7.3's "HID:
-  logitech: add Bolt receiver support for Logitech HID++ devices"
-  (022eb347ff3a, in 7.3-rc1). Benjamin Tissoires reverted it on 2026-09-23
-  as 3fabd8ec206b in hid.git `for-7.3/upstream-fixes`, also in `for-next`,
-  because Bolt does not say which device sent an event and userspace changes
-  the wheel settings under the driver. The revert is not in Linus's tree yet:
-  v7.3-rc5 still has Bolt support.
-- **When it lands**, a 7.3 kernel no longer binds the Bolt receiver in
-  `hid-logitech-dj` and has no bug, and this package has nothing left to
-  fix. On such a kernel `modinfo -F alias hid-logitech-dj | grep -i c548`
+- **The cause has been reverted, and the revert is released.** The 15× scroll
+  comes from "HID: logitech: add Bolt receiver support for Logitech HID++
+  devices" (022eb347ff3a, in v7.3-rc1). Benjamin Tissoires reverted it on
+  2026-09-23 as 3fabd8ec206b, because Bolt does not say which device sent an
+  event and userspace changes the wheel settings under the driver. Linus
+  merged it on 2026-10-02 with `hid-for-linus-2026100201` (5e0f8396d480), and
+  **`v7.3-rc6`, tagged 2026-10-04, is the first tag that contains it**;
+  `v7.3-rc5` is the last with Bolt support. 7.3-rc6 is the newest release on
+  that date; 7.3 itself is not out yet, and 7.2 (7.2.9 is the latest stable)
+  never had the bug.
+- **So this package is for 7.3-rc1 to 7.3-rc5 only.** Later kernels do not
+  bind the Bolt receiver in `hid-logitech-dj`, have no bug, and are not built
+  for. On such a kernel `modinfo -F alias hid-logitech-dj | grep -i c548`
   prints nothing. Reset the wheel as in [Remove](#remove-or-boot-a-kernel-without-this-module),
   then remove the package.
-- **Competing fixes** on linux-input, none merged: Grégoire Stein's "HID:
-  logitech-dj: forward Bolt receiver input to the dj child device"
-  (2026-09-01), Rafael Passos's "HID: logitech-hidpp: fix hi-res scroll for
-  Bolt-connected MX Master" (2026-09-04), and Erik Håkansson's "[PATCH 0/2]
-  HID: logitech-hidpp: fix Bolt hi-res wheel handling" (2026-09-22), whose
-  cover letter cites this repository's `patches/` as reference. After the
-  revert Erik is working on a different approach for a later kernel.
+- **Bolt support may come back** in a later kernel in another form: the
+  revert says it is to be revisited once the two problems can be worked
+  around. Nothing is queued: the revert is the newest change to
+  `hid-logitech-dj.c` in hid.git `for-next`. The fixes posted to linux-input
+  before the revert — Grégoire Stein's "HID: logitech-dj: forward Bolt
+  receiver input to the dj child device" (2026-09-01), Rafael Passos's "HID:
+  logitech-hidpp: fix hi-res scroll for Bolt-connected MX Master"
+  (2026-09-04), and Erik Håkansson's "[PATCH 0/2] HID: logitech-hidpp: fix
+  Bolt hi-res wheel handling" (2026-09-22), whose cover letter cites this
+  repository's `patches/` as reference — were not merged; the revert
+  superseded them.
 - This repository's patch has not been submitted. Its commit message
   explains the mechanism behind Solaar issue #2764, "MX Master 3S Scroll
   Wheel Resolution inconsistent between Bluetooth and Bolt Dongle" (closed).
