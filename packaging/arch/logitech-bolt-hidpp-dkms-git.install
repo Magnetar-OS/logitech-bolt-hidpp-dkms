@@ -1,10 +1,16 @@
 _message() {
   cat <<'EOF'
-==> hid-logitech-hidpp is rebuilt for every 7.3 or later kernel with headers,
-    but the running kernel keeps the module it loaded at boot. Reboot, or
-    reload it:
+==> hid-logitech-hidpp is rebuilt for every 7.3-rc1 to 7.3-rc5 kernel with
+    headers, but the running kernel keeps the module it loaded at boot.
+    Reboot, or reload it:
       sudo modprobe -r hid_logitech_hidpp && sudo modprobe hid_logitech_hidpp
     then power-cycle the mouse once.
+==> Kernel 7.3-rc6 and later do not have the bug and are not built for.
+    Before booting one, turn off Scroll Wheel Diversion and Scroll Wheel
+    Resolution, or the wheel stops scrolling there:
+      solaar config "MX Master 4" hires-scroll-mode false
+      solaar config "MX Master 4" hires-smooth-resolution false
+    Remove this package once no 7.3-rc1 to 7.3-rc5 kernel is installed.
 EOF
 }
 

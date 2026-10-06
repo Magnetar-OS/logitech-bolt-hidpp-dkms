@@ -21,6 +21,30 @@ set -euo pipefail
 readonly MODULE=hid-logitech-hidpp
 readonly MODULE_DIR=drivers/hid
 
+# The kernel releases that have the bug: v7.3-rc1 to v7.3-rc5, as a release
+# names them (7.3.0-rc5-1-cachyos-rc). 022eb347ff3a gave hid-logitech-dj Bolt
+# receiver support in v7.3-rc1 and 3fabd8ec206b reverted it in v7.3-rc6, so
+# no earlier and no later kernel drives a Bolt device through this driver.
+# dkms.conf carries the same expression as BUILD_EXCLUSIVE_KERNEL, and DKMS
+# skips every other kernel before this script runs.
+readonly AFFECTED_KERNELS='^7\.3\.0-rc[1-5]([^0-9]|$)'
+
+# affected_kernel <kernelver>: fails, saying why, for a kernel with nothing
+# to fix.
+affected_kernel() {
+  if [[ $1 =~ $AFFECTED_KERNELS ]]; then
+    return 0
+  fi
+  cat >&2 <<EOF
+build.sh: kernel $1 does not need this module, and it is not built for it.
+  Only v7.3-rc1 to v7.3-rc5 drive a Bolt receiver through hid-logitech-dj;
+  upstream took that out again in v7.3-rc6, and with it the 15x scroll.
+  Once no installed kernel is one of those, reset the wheel and remove the
+  package: see "Remove" in the README.
+EOF
+  return 1
+}
+
 # Kernel release to series: 7.3.0-rc2-1-cachyos-rc -> v7.3
 kernel_series() {
   if [[ ! $1 =~ ^([0-9]+)\.([0-9]+)\. ]]; then
@@ -52,6 +76,7 @@ main() {
   fi
   local kernelver=$1 ksrc=$2
   shift 2
+  affected_kernel "$kernelver"
   local root series patch_file
   root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   series=$(kernel_series "$kernelver")

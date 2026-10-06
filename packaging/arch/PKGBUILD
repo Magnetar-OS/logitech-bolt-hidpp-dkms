@@ -5,9 +5,8 @@
 # Everything DKMS needs goes under /usr/src: build.sh, the patches, and the
 # unmodified upstream driver source for each supported kernel series. pacman
 # runs hooks in a network namespace with only loopback, so nothing can be
-# fetched at build time. A new kernel series arrives through
-# tools/update-source.sh and a new package; until then a kernel from that
-# series fails its DKMS build out loud and keeps its stock driver.
+# fetched at build time. Only 7.3-rc1 to 7.3-rc5 kernels have the bug;
+# dkms.conf makes DKMS skip every other one, which keeps its stock driver.
 #
 # No initramfs step here: the limine/mkinitcpio hook already triggers on
 # usr/src/*/dkms.conf and runs after the DKMS hook.
