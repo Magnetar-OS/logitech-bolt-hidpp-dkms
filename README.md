@@ -2,11 +2,9 @@
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/Magnetar-OS/.github/main/profile/assets/repos/logitech-bolt-hidpp-dkms.svg" width="100%" alt="logitech-bolt-hidpp-dkms — hid-logitech-hidpp with hi-res wheel diversion on Bolt receivers — the MX Master 4 scroll fix — built by DKMS.">
-
+<br><br>
 <a href="https://magnetaros.com"><img src="https://raw.githubusercontent.com/Magnetar-OS/.github/main/profile/assets/pill-site.svg" height="40" alt="magnetaros.com"></a>&nbsp;
 <a href="https://github.com/orgs/Magnetar-OS/repositories"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Magnetar-OS/.github/main/profile/assets/pill-repos-dark.svg"><img src="https://raw.githubusercontent.com/Magnetar-OS/.github/main/profile/assets/pill-repos-light.svg" height="40" alt="All repositories"></picture></a>
-
-<br>
 
 </div>
 <!-- /magnetar:header -->
